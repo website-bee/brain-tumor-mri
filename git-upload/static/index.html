@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Phân tích và phân đoạn ảnh MRI não 2D với mô hình YOLO cục bộ.">
+  <title>NEUROPATH · Phân tích MRI 2D</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="NEUROPATH trang chủ">
+      <svg viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M23 8C18 1 10 5 11 11C3 12 3 21 7 24C1 30 6 38 12 37C13 45 23 45 23 38V8ZM25 8C30 1 38 5 37 11C45 12 45 21 41 24C47 30 42 38 36 37C35 45 25 45 25 38V8Z"/><path d="m13 13 5 5-5 6 5 7-4 5m21-23-5 5 5 6-5 7 4 5M7 24h6m22 0h6M18 18h5m2 13h5"/></svg>
+      <span>NEUROPATH<small>TRỢ LÝ PHÂN TÍCH HÌNH ẢNH Y KHOA</small></span>
+    </a>
+    <div class="header-meta"><span class="mode-chip"><i></i> KHÔNG GIAN PHÂN TÍCH 2D</span><span class="local-note">Xử lý cục bộ trên máy</span><button id="themeToggle" class="theme-toggle" type="button" aria-label="Chuyển sang giao diện sáng" aria-pressed="false">☀ <span>Giao diện sáng</span></button></div>
+  </header>
+
+  <main>
+    <section class="intro">
+      <div><div class="eyebrow">MRI BRAIN ANALYSIS <span>/</span> YOLO SEGMENTATION</div><h1>Từ hình ảnh đến <em>góc nhìn rõ hơn.</em></h1><p>Tải ảnh MRI, nhận diện vùng nghi ngờ và quan sát mặt nạ phân đoạn trên cùng một lát cắt.</p></div>
+      <div class="system-state" id="systemState"><span class="status-dot"></span><span id="systemText">Đang kiểm tra mô hình…</span></div>
+    </section>
+
+    <div class="workspace">
+      <aside class="input-column">
+        <section class="panel input-panel">
+          <div class="panel-heading"><h2><span class="step">01</span> Ảnh MRI đầu vào</h2><span class="tag">2D</span></div>
+          <label class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Chọn hoặc kéo thả ảnh MRI">
+            <input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp,image/bmp" hidden>
+            <span class="upload-symbol"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 16V3m-5 5 5-5 5 5M4 15v5a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-5"/></svg></span>
+            <strong>Thả ảnh MRI vào đây</strong><span>hoặc <b>chọn ảnh từ máy tính</b></span><small>JPG, PNG, WEBP, BMP · Tối đa 10 MB</small>
+          </label>
+          <div class="file-detail" id="fileDetail" hidden><span class="file-icon">↳</span><div><strong id="fileName"></strong><small id="fileMeta"></small></div><button id="clearFile" class="icon-button" aria-label="Xóa ảnh đã chọn">×</button></div>
+          <div class="control-row"><label for="confidence">Ngưỡng tin cậy</label><output id="confidenceValue" for="confidence">25%</output></div>
+          <input id="confidence" type="range" min="5" max="95" value="25" step="5">
+          <div class="range-labels"><span>Nhạy hơn</span><span>Chọn lọc hơn</span></div><p class="threshold-note">Ngưỡng thấp có thể phát hiện thêm vùng nhưng cũng tăng dự đoán sai.</p>
+          <button class="primary-button" id="analyzeButton" disabled><span id="analyzeLabel">Phân tích ảnh</span><span aria-hidden="true">↗</span></button>
+          <p id="errorMessage" class="error-message" role="alert" hidden></p>
+          <p class="helper">Ảnh được xử lý trên máy và không lưu vào lịch sử.</p>
+        </section>
+
+        <section class="panel sample-panel">
+          <div class="panel-heading"><h2>Thử với tập test</h2><span id="sampleCount" class="subtle">—</span></div>
+          <p class="section-description">Chọn ảnh để phân tích từng lát cắt. Nhóm ảnh dựa trên tên tệp.</p>
+          <label class="sample-filter">Nhóm ảnh <select id="sampleFilter"><option value="all">Tất cả</option><option value="glioma">Glioma</option><option value="meningioma">Meningioma</option><option value="pituitary">Pituitary</option><option value="other">Khác</option></select></label>
+          <div class="sample-grid" id="sampleGrid"></div>
+          <div class="sample-pagination"><button class="text-button" id="prevSamples">← Trước</button><span id="samplePage" aria-live="polite"></span><button class="text-button" id="moreSamples">Tiếp →</button></div>
+        </section>
+        <div class="model-card"><span class="model-icon">⌘</span><div><strong id="modelName">yolo.pt</strong><span>Nhận diện & phân đoạn khối u</span></div><span class="tag">LOCAL</span></div>
+      </aside>
+
+      <section class="panel viewer-panel">
+        <div class="panel-heading"><h2><span class="step">02</span> Không gian quan sát</h2><span id="imageDimensions" class="mono subtle">CHƯA CÓ ẢNH</span></div>
+        <div class="viewer-toolbar"><div class="tabs" role="tablist" aria-label="Chế độ xem"><button class="tab active" data-view="original" role="tab" aria-selected="true">Ảnh gốc</button><button class="tab" data-view="overlay" role="tab" aria-selected="false" disabled>Phân đoạn</button><button class="tab" data-view="mask" role="tab" aria-selected="false" disabled>Mặt nạ</button></div><button id="zoomReset" class="icon-button" aria-label="Đặt lại độ phóng đại" title="Đặt lại độ phóng đại">⤢</button></div>
+        <div class="image-stage" id="imageStage">
+          <div class="stage-grid"></div><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+          <div class="viewer-empty" id="viewerEmpty"><svg viewBox="0 0 96 96" fill="none" aria-hidden="true"><rect x="16" y="12" width="64" height="72" rx="5"/><path d="M48 27c-13-12-30 7-19 20-9 15 5 29 17 18V29m4-2c13-12 30 7 19 20 9 15-5 29-17 18V29M32 38l8 8-6 9m30-17-8 8 6 9"/><path d="M5 32V5h27m32 0h27v27M5 64v27h27m32 0h27V64"/></svg><strong>Sẵn sàng cho một góc nhìn mới</strong><span>Thêm ảnh MRI để bắt đầu phân tích</span></div>
+          <img id="viewerImage" alt="Ảnh MRI được chọn" hidden>
+          <span id="viewBadge" class="view-badge" hidden>ẢNH GỐC</span>
+          <div id="busyOverlay" class="busy-overlay" role="status" hidden><span class="spinner"></span><strong>Đang phân tích ảnh MRI</strong><span>Đang nạp mô hình và suy luận…</span></div>
+        </div>
+        <div class="viewer-footer"><span><i class="legend-dot"></i> <span id="viewerCaption">Một ảnh đầu vào · Một lát cắt 2D</span></span><div class="zoom-control"><label for="zoom">Thu phóng</label><input id="zoom" type="range" min="100" max="300" value="100" step="10"><output id="zoomValue">100%</output></div></div>
+        <div class="legend"><span><i style="--color:#ff647c"></i>Glioma</span><span><i style="--color:#ffc76a"></i>Meningioma</span><span><i style="--color:#5ae0c0"></i>Pituitary</span><span class="legend-note">Màu theo nhãn dự đoán</span></div>
+        <div class="process-strip"><span class="process-step" id="processInput"><b>1</b> Ảnh đầu vào</span><span class="process-line"></span><span class="process-step" id="processModel"><b>2</b> Suy luận YOLO</span><span class="process-line"></span><span class="process-step" id="processResult"><b>3</b> Mặt nạ 2D</span></div>
+      </section>
+
+      <aside class="result-column">
+        <section class="panel result-panel">
+          <div class="panel-heading"><h2><span class="step">03</span> Kết quả phân tích</h2><span class="tag" id="resultTag">ĐANG CHỜ</span></div>
+          <div id="resultEmpty" class="result-empty"><span class="result-empty-icon">◎</span><strong>Chưa có kết quả</strong><p>Kết quả nhận diện và phân đoạn sẽ xuất hiện sau khi phân tích ảnh.</p></div>
+          <div id="resultContent" hidden>
+            <div class="prediction-card"><span>NHÃN DỰ ĐOÁN NỔI BẬT</span><h3 id="predictedClass"></h3><p id="predictedLabel"></p><div class="confidence-row"><span>Độ tin cậy mô hình</span><strong id="predictedConfidence"></strong></div><div class="confidence-track"><i id="confidenceBar"></i></div></div>
+            <dl class="stats"><div><dt>Số vùng phát hiện</dt><dd id="regionCount"></dd></div><div><dt>Diện tích phân đoạn</dt><dd id="areaPixels"></dd></div><div><dt>Tỷ lệ trên toàn ảnh</dt><dd id="areaPercent"></dd></div><div><dt>Thời gian suy luận</dt><dd id="inferenceTime"></dd></div></dl>
+            <div class="detections-heading">CHI TIẾT TỪNG VÙNG</div><div id="detectionList" class="detection-list"></div>
+            <button class="secondary-button" id="downloadButton">↓ Tải ảnh phân đoạn</button><div class="download-links"><button id="downloadMask" class="text-button">Mặt nạ nhị phân</button><button id="downloadJson" class="text-button">Kết quả JSON</button></div>
+          </div>
+        </section>
+        <section class="panel interpretation-panel"><div class="panel-heading"><h2>Thông tin kết quả</h2><span class="info-icon">i</span></div><p id="interpretation">Mô hình hỗ trợ nhận diện 3 nhóm: u thần kinh đệm, u màng não và u tuyến yên.</p><p id="areaExplanation">Diện tích là số pixel thuộc hợp các mặt nạ trên toàn ảnh; độ tin cậy không phải xác suất chẩn đoán.</p><div class="medical-note"><strong>Hỗ trợ nghiên cứu</strong><p>Dự đoán AI cần được bác sĩ đánh giá cùng dữ liệu lâm sàng. Không thay thế chẩn đoán y khoa.</p></div></section>
+      </aside>
+    </div>
+    <footer><span><i></i> NEUROPATH <b>/</b> MRI SEGMENTATION WORKSPACE</span><span>Hình ảnh 2D. Thông tin rõ ràng hơn.</span></footer>
+  </main>
+</body>
+</html>
